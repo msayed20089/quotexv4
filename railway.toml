@@ -1,5 +1,5 @@
 [build]
-builder = "NIXPACKS"
+builder = "nixpacks"
 
 [deploy]
 startCommand = "python main.py"
@@ -7,3 +7,6 @@ startCommand = "python main.py"
 [[services]]
 name = "trading-bot"
 type = "worker"
+
+[build.environment]
+PYTHON_VERSION = "3.11"

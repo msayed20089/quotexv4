@@ -91,20 +91,15 @@ class AdvancedScheduler:
         result_time = self.format_time(self.pending_trade['result_time'])
         
         message = f"""
-📊 <b>إشارة تداول متقدمة</b>
+📊 <b>إشارة تداول جديدة</b>
 
 💰 <b>الزوج:</b> {trade_data['pair']}
 🎯 <b>الاتجاه:</b> {trade_data['direction']}
 ⏱ <b>المدة:</b> 30 ثانية
 
-📈 <b>التحليل:</b>
-• الثقة: {trade_data['confidence']}%
-• RSI: {trade_data['indicators']['rsi']}
-
 🕒 <b>مواعيد الصفقة:</b>
 • وقت الإشارة: {signal_time}
 • وقت الدخول: {trade_time} 🎯
-• وقت النتيجة: {result_time}
 
 ⚡ <b>جاري التحضير...</b>
 """
@@ -171,17 +166,9 @@ class AdvancedScheduler:
 💰 <b>الزوج:</b> {trade_data['pair']}
 📊 <b>النتيجة:</b> {result_text}
 📈 <b>الاتجاه:</b> {trade_data['direction']}
-
-💹 <b>حركة السعر:</b>
-• الافتتاح: {candle_data['open']}
-• الإغلاق: {candle_data['close']}
-• التغير: {candle_data['price_change_percent']}%
-
+<b> النتيجه فيها مشكله وهتتصلح قريب متعتمدش عليها <b>
 🕒 <b>الوقت:</b> {current_time}
 
-📊 <b>إحصائيات:</b>
-• الرابحة: {self.stats['win_trades']}
-• الخاسرة: {self.stats['loss_trades']}
 """
         self.telegram_bot.send_message(message)
     

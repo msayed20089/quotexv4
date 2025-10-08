@@ -22,6 +22,7 @@ class AdvancedScheduler:
         
         self.next_signal_time = None
         self.pending_trade = None
+        self.debug_mode = True  # وضع التصحيح
         
     def get_utc3_time(self):
         return datetime.now(UTC3_TZ)
@@ -29,21 +30,25 @@ class AdvancedScheduler:
     def calculate_next_signal_time(self):
         """الإشارة التالية بعد دقيقتين"""
         now = self.get_utc3_time()
-        return (now.replace(second=0, microsecond=0) + timedelta(minutes=2))
+        if self.debug_mode:
+            # في وضع التصحيح، الإشارة التالية بعد 30 ثانية
+            return now.replace(second=0, microsecond=0) + timedelta(seconds=30)
+        else:
+            return now.replace(second=0, microsecond=0) + timedelta(minutes=2)
     
     def format_time(self, dt):
         """تنسيق الوقت بثواني 00"""
         return dt.strftime("%H:%M:00")
     
     def start_trading_system(self):
-    """بدء النظام"""
-    try:
-        current_time = self.format_time(self.get_utc3_time())
-        
-        # إرسال رسالة الرصيد أولاً
-        account_info = self.qx_manager.get_account_info()
-        
-        welcome_message = f"""
+        """بدء النظام"""
+        try:
+            current_time = self.format_time(self.get_utc3_time())
+            
+            # إرسال رسالة الرصيد أولاً
+            account_info = self.qx_manager.get_account_info()
+            
+            welcome_message = f"""
 🎯 <b>بدء تشغيل النظام بالتوقيت المحدد</b>
 
 💳 <b>معلومات الحساب:</b>
@@ -60,16 +65,16 @@ class AdvancedScheduler:
 🕒 <b>الوقت الحالي:</b> {current_time} (UTC+3)
 {'⚡ <b>وضع التصحيح نشط - دورة كل 30 ثانية</b>' if self.debug_mode else ''}
 """
-        success = self.telegram_bot.send_message(welcome_message)
-        
-        if not success:
-            logging.warning("⚠️ فشل إرسال رسالة البداية، جاري التشغيل بدون Telegram")
-        
-        self.next_signal_time = self.calculate_next_signal_time()
-        logging.info(f"⏰ أول إشارة: {self.format_time(self.next_signal_time)}")
-        
-    except Exception as e:
-        logging.error(f"❌ خطأ في بدء النظام: {e}")
+            success = self.telegram_bot.send_message(welcome_message)
+            
+            if not success:
+                logging.warning("⚠️ فشل إرسال رسالة البداية، جاري التشغيل بدون Telegram")
+            
+            self.next_signal_time = self.calculate_next_signal_time()
+            logging.info(f"⏰ أول إشارة: {self.format_time(self.next_signal_time)}")
+            
+        except Exception as e:
+            logging.error(f"❌ خطأ في بدء النظام: {e}")
     
     def execute_signal_cycle(self):
         """دورة الإشارة"""
@@ -82,11 +87,20 @@ class AdvancedScheduler:
             
             # تخزين الصفقة المعلقة
             current_time = self.get_utc3_time().replace(second=0, microsecond=0)
+            
+            if self.debug_mode:
+                # في وضع التصحيح، التنفيذ بعد 10 ثواني
+                trade_time = current_time + timedelta(seconds=10)
+                result_time = current_time + timedelta(seconds=45)
+            else:
+                trade_time = current_time + timedelta(minutes=1)
+                result_time = current_time + timedelta(minutes=1, seconds=35)
+            
             self.pending_trade = {
                 'data': trade_data,
                 'signal_time': current_time,
-                'trade_time': current_time + timedelta(minutes=1),
-                'result_time': current_time + timedelta(minutes=1, seconds=35)
+                'trade_time': trade_time,
+                'result_time': result_time
             }
             
             self.send_trade_signal(trade_data)
@@ -115,7 +129,7 @@ class AdvancedScheduler:
 • وقت الإشارة: {signal_time}
 • وقت الدخول: {trade_time} 🎯
 
-⚡ <b>جاري التحضير...</b>
+{'⚡ <b>وضع التصحيح نشط</b>' if self.debug_mode else ''}
 """
             self.telegram_bot.send_message(message)
         except Exception as e:
@@ -150,10 +164,7 @@ class AdvancedScheduler:
         try:
             trade_data = self.pending_trade['data']
             
-            # التأكد من تسجيل الدخول أولاً
-            if not self.qx_manager.is_logged_in:
-                logging.info("🔐 جاري تسجيل الدخول إلى QX Broker...")
-                self.qx_manager.login()
+            logging.info(f"🎯 بدء تنفيذ الصفقة: {trade_data['pair']} - {trade_data['direction']}")
             
             # تنفيذ الصفقة الحقيقية على QX Broker
             success = self.qx_manager.execute_trade(
@@ -172,12 +183,6 @@ class AdvancedScheduler:
             
             # التحقق من النتيجة الحقيقية من QX Broker
             result = self.qx_manager.check_trade_result(trade_data['pair'])
-            
-            # إذا لم نتمكن من الحصول على النتيجة، نستخدم المحاكاة
-            if result == "UNKNOWN":
-                logging.warning("⚠️ استخدام النظام الوهمي للنتيجة")
-                candle_data = self.candle_analyzer.generate_candle_data(trade_data['pair'])
-                result = self.candle_analyzer.determine_trade_result(candle_data, trade_data['direction'])
             
             # تحديث الإحصائيات
             self.update_stats(result, trade_data)
@@ -220,11 +225,11 @@ class AdvancedScheduler:
 🕒 <b>الوقت:</b> {current_time}
 
 💳 <b>معلومات الحساب:</b>
-• الرصيد: ${account_info['balance']:.2f}
+• الرصيد: ${account_info['balance']:,.2f}
 • عدد الصفقات: {account_info['trades_count']}
 • الحالة: {account_info['status']}
 
-📊 <b>نظام QX Broker التجريبي</b>
+{'⚡ <b>وضع التصحيح نشط</b>' if self.debug_mode else ''}
 """
             self.telegram_bot.send_message(message)
         except Exception as e:
@@ -266,7 +271,7 @@ class AdvancedScheduler:
                     logging.info(f"⏰ بدء دورة الإشارة: {self.format_time(current_time)}")
                     self.execute_signal_cycle()
                     
-                    # الإشارة التالية بعد دقيقتين
+                    # الإشارة التالية
                     self.next_signal_time = self.calculate_next_signal_time()
                     logging.info(f"⏰ الإشارة القادمة: {self.format_time(self.next_signal_time)}")
                 

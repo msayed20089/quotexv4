@@ -22,7 +22,6 @@ class AdvancedScheduler:
         
         self.next_signal_time = None
         self.pending_trade = None
-        self.debug_mode = True  # وضع التصحيح
         
     def get_utc3_time(self):
         return datetime.now(UTC3_TZ)
@@ -30,11 +29,7 @@ class AdvancedScheduler:
     def calculate_next_signal_time(self):
         """الإشارة التالية بعد دقيقتين"""
         now = self.get_utc3_time()
-        if self.debug_mode:
-            # في وضع التصحيح، الإشارة التالية بعد 30 ثانية
-            return now.replace(second=0, microsecond=0) + timedelta(seconds=30)
-        else:
-            return now.replace(second=0, microsecond=0) + timedelta(minutes=2)
+        return (now.replace(second=0, microsecond=0) + timedelta(minutes=2))
     
     def format_time(self, dt):
         """تنسيق الوقت بثواني 00"""
@@ -42,19 +37,10 @@ class AdvancedScheduler:
     
     def start_trading_system(self):
         """بدء النظام"""
-        try:
-            current_time = self.format_time(self.get_utc3_time())
-            
-            # إرسال رسالة الرصيد أولاً
-            account_info = self.qx_manager.get_account_info()
-            
-            welcome_message = f"""
+        current_time = self.format_time(self.get_utc3_time())
+        
+        welcome_message = f"""
 🎯 <b>بدء تشغيل النظام بالتوقيت المحدد</b>
-
-💳 <b>معلومات الحساب:</b>
-• الرصيد: ${account_info['balance']:,.2f}
-• الحساب: {account_info['email']}
-• البلد: {account_info['country']}
 
 ⏰ <b>نظام التوقيت:</b>
 • 6:00:00 → نشر إشارة الصفقة
@@ -63,23 +49,18 @@ class AdvancedScheduler:
 • 6:02:00 → الإشارة التالية
 
 🕒 <b>الوقت الحالي:</b> {current_time} (UTC+3)
-{'⚡ <b>وضع التصحيح نشط - دورة كل 30 ثانية</b>' if self.debug_mode else ''}
+⚡ <b>*جاري التحضير للإشارة الأولى...*</b>
 """
-            success = self.telegram_bot.send_message(welcome_message)
-            
-            if not success:
-                logging.warning("⚠️ فشل إرسال رسالة البداية، جاري التشغيل بدون Telegram")
-            
-            self.next_signal_time = self.calculate_next_signal_time()
-            logging.info(f"⏰ أول إشارة: {self.format_time(self.next_signal_time)}")
-            
-        except Exception as e:
-            logging.error(f"❌ خطأ في بدء النظام: {e}")
+        self.telegram_bot.send_message(welcome_message)
+        
+        self.next_signal_time = self.calculate_next_signal_time()
+        logging.info(f"⏰ أول إشارة: {self.format_time(self.next_signal_time)}")
     
     def execute_signal_cycle(self):
         """دورة الإشارة"""
         try:
             trade_data = self.trading_engine.analyze_and_decide()
+            self.stats['skipped_trades'] += 1
             
             if trade_data['confidence'] < 65:
                 self.send_skip_message(trade_data)
@@ -87,20 +68,11 @@ class AdvancedScheduler:
             
             # تخزين الصفقة المعلقة
             current_time = self.get_utc3_time().replace(second=0, microsecond=0)
-            
-            if self.debug_mode:
-                # في وضع التصحيح، التنفيذ بعد 10 ثواني
-                trade_time = current_time + timedelta(seconds=10)
-                result_time = current_time + timedelta(seconds=45)
-            else:
-                trade_time = current_time + timedelta(minutes=1)
-                result_time = current_time + timedelta(minutes=1, seconds=35)
-            
             self.pending_trade = {
                 'data': trade_data,
                 'signal_time': current_time,
-                'trade_time': trade_time,
-                'result_time': result_time
+                'trade_time': current_time + timedelta(minutes=1),
+                'result_time': current_time + timedelta(minutes=1, seconds=35)
             }
             
             self.send_trade_signal(trade_data)
@@ -114,11 +86,11 @@ class AdvancedScheduler:
     
     def send_trade_signal(self, trade_data):
         """إرسال إشارة الصفقة"""
-        try:
-            signal_time = self.format_time(self.pending_trade['signal_time'])
-            trade_time = self.format_time(self.pending_trade['trade_time'])
-            
-            message = f"""
+        signal_time = self.format_time(self.pending_trade['signal_time'])
+        trade_time = self.format_time(self.pending_trade['trade_time'])
+        result_time = self.format_time(self.pending_trade['result_time'])
+        
+        message = f"""
 📊 <b>إشارة تداول جديدة</b>
 
 💰 <b>الزوج:</b> {trade_data['pair']}
@@ -129,18 +101,15 @@ class AdvancedScheduler:
 • وقت الإشارة: {signal_time}
 • وقت الدخول: {trade_time} 🎯
 
-{'⚡ <b>وضع التصحيح نشط</b>' if self.debug_mode else ''}
+⚡ <b>جاري التحضير...</b>
 """
-            self.telegram_bot.send_message(message)
-        except Exception as e:
-            logging.error(f"❌ خطأ في إرسال إشارة الصفقة: {e}")
+        self.telegram_bot.send_message(message)
     
     def send_skip_message(self, trade_data):
         """رسالة تخطي"""
-        try:
-            current_time = self.format_time(self.get_utc3_time())
-            
-            message = f"""
+        current_time = self.format_time(self.get_utc3_time())
+        
+        message = f"""
 ⏭️ <b>تم تخطي الصفقة</b>
 
 💰 <b>الزوج:</b> {trade_data['pair']}
@@ -152,88 +121,56 @@ class AdvancedScheduler:
 
 🕒 <b>الوقت:</b> {current_time}
 """
-            self.telegram_bot.send_message(message)
-        except Exception as e:
-            logging.error(f"❌ خطأ في إرسال رسالة التخطي: {e}")
+        self.telegram_bot.send_message(message)
     
     def execute_trade_cycle(self):
-        """تنفيذ الصفقة الحقيقية"""
+        """تنفيذ الصفقة"""
         if not self.pending_trade:
             return
             
         try:
             trade_data = self.pending_trade['data']
             
-            logging.info(f"🎯 بدء تنفيذ الصفقة: {trade_data['pair']} - {trade_data['direction']}")
+            # تنفيذ الصفقة
+            self.qx_manager.execute_trade(trade_data['pair'], trade_data['direction'])
             
-            # تنفيذ الصفقة الحقيقية على QX Broker
-            success = self.qx_manager.execute_trade(
-                trade_data['pair'], 
-                trade_data['direction']
-            )
-            
-            if not success:
-                logging.error("❌ فشل تنفيذ الصفقة على QX Broker")
-                self.send_trade_result("FAILED", trade_data)
-                return
-            
-            # انتظار 30 ثانية (مدة الصفقة)
-            logging.info("⏳ انتظار نتيجة الصفقة (30 ثانية)...")
+            # انتظار 30 ثانية
             time.sleep(30)
             
-            # التحقق من النتيجة الحقيقية من QX Broker
-            result = self.qx_manager.check_trade_result(trade_data['pair'])
+            # توليد الشمعة وتحديد النتيجة
+            candle_data = self.candle_analyzer.generate_candle_data(trade_data['pair'])
+            result = self.candle_analyzer.determine_trade_result(candle_data, trade_data['direction'])
             
             # تحديث الإحصائيات
             self.update_stats(result, trade_data)
             
             # إرسال النتيجة
-            self.send_trade_result(result, trade_data)
+            self.send_trade_result(result, trade_data, candle_data)
             
             logging.info(f"🎯 اكتملت الصفقة: {result}")
             
         except Exception as e:
             logging.error(f"❌ خطأ في التنفيذ: {e}")
-            self.send_trade_result("ERROR", trade_data)
         finally:
             self.pending_trade = None
     
-    def send_trade_result(self, result, trade_data):
-        """إرسال النتيجة مع معلومات الحساب"""
-        try:
-            result_emoji = "🎉" if result == 'WIN' else "❌"
-            result_text = "WIN 🎉" if result == 'WIN' else "LOSS ❌"
-            
-            if result == "FAILED":
-                result_emoji = "🚫"
-                result_text = "FAILED 🚫"
-            elif result == "ERROR":
-                result_emoji = "⚠️"
-                result_text = "ERROR ⚠️"
-            
-            current_time = self.format_time(self.get_utc3_time())
-            
-            # الحصول على معلومات الحساب
-            account_info = self.qx_manager.get_account_info()
-            
-            message = f"""
+    def send_trade_result(self, result, trade_data, candle_data):
+        """إرسال النتيجة"""
+        result_emoji = "🎉" if result == 'WIN' else "❌"
+        result_text = "WIN 🎉" if result == 'WIN' else "LOSS ❌"
+        current_time = self.format_time(self.get_utc3_time())
+        
+        message = f"""
 🎯 <b>نتيجة الصفقة</b> {result_emoji}
 
 💰 <b>الزوج:</b> {trade_data['pair']}
 📊 <b>النتيجة:</b> {result_text}
 📈 <b>الاتجاه:</b> {trade_data['direction']}
+<b> النتيجه فيها مشكله وهتتصلح قريب متعتمدش عليها <b>
 🕒 <b>الوقت:</b> {current_time}
 
-💳 <b>معلومات الحساب:</b>
-• الرصيد: ${account_info['balance']:,.2f}
-• عدد الصفقات: {account_info['trades_count']}
-• الحالة: {account_info['status']}
-
-{'⚡ <b>وضع التصحيح نشط</b>' if self.debug_mode else ''}
 """
-            self.telegram_bot.send_message(message)
-        except Exception as e:
-            logging.error(f"❌ خطأ في إرسال النتيجة: {e}")
+        self.telegram_bot.send_message(message)
     
     def update_stats(self, result, trade_data):
         """تحديث الإحصائيات"""
@@ -269,9 +206,14 @@ class AdvancedScheduler:
                     not self.pending_trade):
                     
                     logging.info(f"⏰ بدء دورة الإشارة: {self.format_time(current_time)}")
-                    self.execute_signal_cycle()
+                    self.pending_trade = self.execute_signal_cycle()
                     
-                    # الإشارة التالية
+                    if self.pending_trade:
+                        # جدولة التنفيذ بعد دقيقة
+                        trade_time = self.pending_trade['trade_time']
+                        logging.info(f"⏰ تم جدولة التنفيذ: {self.format_time(trade_time)}")
+                    
+                    # الإشارة التالية بعد دقيقتين
                     self.next_signal_time = self.calculate_next_signal_time()
                     logging.info(f"⏰ الإشارة القادمة: {self.format_time(self.next_signal_time)}")
                 

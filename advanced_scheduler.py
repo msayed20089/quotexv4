@@ -36,12 +36,20 @@ class AdvancedScheduler:
         return dt.strftime("%H:%M:00")
     
     def start_trading_system(self):
-        """بدء النظام"""
-        try:
-            current_time = self.format_time(self.get_utc3_time())
-            
-            welcome_message = f"""
+    """بدء النظام"""
+    try:
+        current_time = self.format_time(self.get_utc3_time())
+        
+        # إرسال رسالة الرصيد أولاً
+        account_info = self.qx_manager.get_account_info()
+        
+        welcome_message = f"""
 🎯 <b>بدء تشغيل النظام بالتوقيت المحدد</b>
+
+💳 <b>معلومات الحساب:</b>
+• الرصيد: ${account_info['balance']:,.2f}
+• الحساب: {account_info['email']}
+• البلد: {account_info['country']}
 
 ⏰ <b>نظام التوقيت:</b>
 • 6:00:00 → نشر إشارة الصفقة
@@ -50,15 +58,18 @@ class AdvancedScheduler:
 • 6:02:00 → الإشارة التالية
 
 🕒 <b>الوقت الحالي:</b> {current_time} (UTC+3)
-⚡ <b>*جاري التحضير للإشارة الأولى...*</b>
+{'⚡ <b>وضع التصحيح نشط - دورة كل 30 ثانية</b>' if self.debug_mode else ''}
 """
-            self.telegram_bot.send_message(welcome_message)
-            
-            self.next_signal_time = self.calculate_next_signal_time()
-            logging.info(f"⏰ أول إشارة: {self.format_time(self.next_signal_time)}")
-            
-        except Exception as e:
-            logging.error(f"❌ خطأ في بدء النظام: {e}")
+        success = self.telegram_bot.send_message(welcome_message)
+        
+        if not success:
+            logging.warning("⚠️ فشل إرسال رسالة البداية، جاري التشغيل بدون Telegram")
+        
+        self.next_signal_time = self.calculate_next_signal_time()
+        logging.info(f"⏰ أول إشارة: {self.format_time(self.next_signal_time)}")
+        
+    except Exception as e:
+        logging.error(f"❌ خطأ في بدء النظام: {e}")
     
     def execute_signal_cycle(self):
         """دورة الإشارة"""

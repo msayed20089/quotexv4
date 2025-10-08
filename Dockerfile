@@ -2,8 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# تثبيت المتطلبات النظامية الأساسية فقط
+# تثبيت المتطلبات النظامية
 RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # نسخ الملفات

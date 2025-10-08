@@ -124,28 +124,39 @@ class AdvancedScheduler:
         self.telegram_bot.send_message(message)
     
     def execute_trade_cycle(self):
-        """تنفيذ الصفقة"""
+        """تنفيذ الصفقة الحقيقية"""
         if not self.pending_trade:
             return
             
         try:
             trade_data = self.pending_trade['data']
             
-            # تنفيذ الصفقة
-            self.qx_manager.execute_trade(trade_data['pair'], trade_data['direction'])
+            # تنفيذ الصفقة الحقيقية على QX Broker
+            success = self.qx_manager.execute_trade(
+                trade_data['pair'], 
+                trade_data['direction']
+            )
             
-            # انتظار 30 ثانية
+            if not success:
+                logging.error("❌ فشل تنفيذ الصفقة على QX Broker")
+                return
+            
+            # انتظار 30 ثانية (مدة الصفقة)
             time.sleep(30)
             
-            # توليد الشمعة وتحديد النتيجة
-            candle_data = self.candle_analyzer.generate_candle_data(trade_data['pair'])
-            result = self.candle_analyzer.determine_trade_result(candle_data, trade_data['direction'])
+            # التحقق من النتيجة الحقيقية
+            result = self.qx_manager.check_trade_result(trade_data['pair'])
+            
+            # إذا لم نتمكن من الحصول على النتيجة، نستخدم المحاكاة
+            if result == "UNKNOWN":
+                candle_data = self.candle_analyzer.generate_candle_data(trade_data['pair'])
+                result = self.candle_analyzer.determine_trade_result(candle_data, trade_data['direction'])
             
             # تحديث الإحصائيات
             self.update_stats(result, trade_data)
             
             # إرسال النتيجة
-            self.send_trade_result(result, trade_data, candle_data)
+            self.send_trade_result(result, trade_data, None)
             
             logging.info(f"🎯 اكتملت الصفقة: {result}")
             
@@ -166,9 +177,9 @@ class AdvancedScheduler:
 💰 <b>الزوج:</b> {trade_data['pair']}
 📊 <b>النتيجة:</b> {result_text}
 📈 <b>الاتجاه:</b> {trade_data['direction']}
-<b> النتيجه فيها مشكله وهتتصلح قريب متعتمدش عليها <b>
 🕒 <b>الوقت:</b> {current_time}
 
+📊 <b>نظام QX Broker الحقيقي</b>
 """
         self.telegram_bot.send_message(message)
     
@@ -230,44 +241,3 @@ class AdvancedScheduler:
             logging.error(f"❌ خطأ فادح: {e}")
             time.sleep(10)
             self.run_precision_scheduler()
-            def execute_trade_cycle(self):
-    """تنفيذ الصفقة الحقيقية"""
-    if not self.pending_trade:
-        return
-        
-    try:
-        trade_data = self.pending_trade['data']
-        
-        # تنفيذ الصفقة الحقيقية على QX Broker
-        success = self.qx_manager.execute_trade(
-            trade_data['pair'], 
-            trade_data['direction']
-        )
-        
-        if not success:
-            logging.error("❌ فشل تنفيذ الصفقة على QX Broker")
-            return
-        
-        # انتظار 30 ثانية (مدة الصفقة)
-        time.sleep(30)
-        
-        # التحقق من النتيجة الحقيقية
-        result = self.qx_manager.check_trade_result(trade_data['pair'])
-        
-        # إذا لم نتمكن من الحصول على النتيجة، نستخدم المحاكاة
-        if result == "UNKNOWN":
-            candle_data = self.candle_analyzer.generate_candle_data(trade_data['pair'])
-            result = self.candle_analyzer.determine_trade_result(candle_data, trade_data['direction'])
-        
-        # تحديث الإحصائيات
-        self.update_stats(result, trade_data)
-        
-        # إرسال النتيجة
-        self.send_trade_result(result, trade_data, None)
-        
-        logging.info(f"🎯 اكتملت الصفقة: {result}")
-        
-    except Exception as e:
-        logging.error(f"❌ خطأ في التنفيذ: {e}")
-    finally:
-        self.pending_trade = None

@@ -13,14 +13,9 @@ QX_PASSWORD = os.getenv('QX_PASSWORD', 'Mrvip@219')
 # الأزواج المطلوبة
 TRADING_PAIRS = [
     'USD/BRL', 'USD/EGP', 'USD/TRY', 'USD/ARS', 'USD/COP',
-    'USD/DZD', 'USD/IDR', 'USD/BDT', 'USD/NGN',
+    'USD/DZD', 'USD/IDR', 'USD/BDT', 'USD/CAD', 'USD/NGN',
     'USD/PKR', 'USD/INR', 'USD/MXN', 'USD/PHP'
 ]
-# إضافة إلى config.py
-QX_DEMO_URL = "https://qxbroker.com/en/demo-trade"
-QX_SIGNIN_URL = "https://qxbroker.com/en/sign-in"
-QX_EMAIL = "mohamedels928@gmail.com"
-QX_PASSWORD = "Mrvip@219"
 
 # إعدادات التداول
 TRADE_DURATION = 30

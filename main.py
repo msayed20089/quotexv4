@@ -1,7 +1,6 @@
 from advanced_scheduler import AdvancedScheduler
 import logging
 import sys
-import time
 
 # إعداد التسجيل
 logging.basicConfig(
@@ -22,6 +21,7 @@ def main():
     except Exception as e:
         logging.error(f"❌ خطأ في التشغيل: {e}")
         logging.info("🔄 إعادة التشغيل بعد 30 ثانية...")
+        import time
         time.sleep(30)
         main()
 

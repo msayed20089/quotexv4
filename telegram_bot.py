@@ -1,4 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CommandHandler, Updater
 import telegram
 import logging
 import random
@@ -44,3 +45,50 @@ class TelegramBot:
         except Exception as e:
             logging.error(f"❌ خطأ في إرسال الرسالة: {e}")
             return False
+class TelegramBot:
+    def __init__(self):
+        self.token = TELEGRAM_TOKEN
+        self.channel_id = CHANNEL_ID
+        self.signup_url = QX_SIGNUP_URL
+        self.verification_code = None
+        self.waiting_for_code = False
+        
+        try:
+            self.bot = telegram.Bot(token=self.token)
+            self.updater = Updater(token=self.token, use_context=True)
+            self.setup_handlers()
+            logging.info("✅ تم تهيئة بوت التليجرام بنجاح")
+        except Exception as e:
+            logging.error(f"خطأ في تهيئة بوت التليجرام: {e}")
+            self.bot = None
+    
+    def setup_handlers(self):
+        """إعداد معالجات الأوامر"""
+        dispatcher = self.updater.dispatcher
+        dispatcher.add_handler(CommandHandler("code", self.handle_code_command))
+        self.updater.start_polling()
+    
+    def handle_code_command(self, update, context):
+        """معالجة أمر /code لإدخال كود التحقق"""
+        try:
+            if len(context.args) == 0:
+                update.message.reply_text("⚠️ يرجى إدخال الكود: /code 123456")
+                return
+            
+            code = context.args[0]
+            self.verification_code = code
+            self.waiting_for_code = False
+            
+            # إرسال الكود إلى QX Broker
+            from qx_broker import QXBrokerManager
+            qx_manager = QXBrokerManager()
+            success = qx_manager.enter_verification_code(code)
+            
+            if success:
+                update.message.reply_text("✅ تم إدخال الكود بنجاح! جاري استئناف التداول...")
+            else:
+                update.message.reply_text("❌ فشل إدخال الكود، حاول مرة أخرى: /code 123456")
+                
+        except Exception as e:
+            logging.error(f"❌ خطأ في معالجة الكود: {e}")
+            update.message.reply_text("❌ حدث خطأ، حاول مرة أخرى")

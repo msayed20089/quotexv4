@@ -13,7 +13,7 @@ QX_PASSWORD = os.getenv('QX_PASSWORD', 'Mrvip@219')
 # الأزواج المطلوبة
 TRADING_PAIRS = [
     'USD/BRL', 'USD/EGP', 'USD/TRY', 'USD/ARS', 'USD/COP',
-    'USD/DZD', 'USD/IDR', 'USD/BDT', 'USD/CAD', 'USD/NGN',
+    'USD/DZD', 'USD/IDR', 'USD/BDT', 'USD/NGN', 
     'USD/PKR', 'USD/INR', 'USD/MXN', 'USD/PHP'
 ]
 

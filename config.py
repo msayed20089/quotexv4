@@ -4,7 +4,9 @@ from pytz import timezone
 # إعدادات البوت
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', "7920984703:AAHkRNpgzDxBzS61hAe7r7cO_fATlAB8oqM")
 CHANNEL_ID = os.getenv('CHANNEL_ID', "@Kingelg0ld")
+GROUP_ID = os.getenv('GROUP_ID', "@Alahly_Bank")  # تم إضافة الجروب
 QX_SIGNUP_URL = "https://broker-qx.pro/sign-up/?lid=1376472"
+TUTORIAL_URL = "https://t.me/Kingelg0ld/3802"  # تم إضافة رابط الشرح
 
 # بيانات الدخول لـ QX Broker (للتحليل فقط)
 QX_EMAIL = os.getenv('QX_EMAIL', 'mohamedels928@gmail.com')
